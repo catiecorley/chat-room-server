@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+       <title>chat server</title>
+
+      <script src="/socket.io/socket.io.js"></script>
+      <meta charset="UTF-8">
+      <script>
+
+      var socketio = io.connect();
+
+      //adds message to the chatlog output
+      socketio.on("message_to_client",function(data) {
+         //Append an HR thematic break and the escaped HTML of the new message
+         document.getElementById("chatlog").appendChild(document.createElement("hr"));
+         document.getElementById("chatlog").appendChild(document.createTextNode(data['user'] + ": " + data['message']));
+      });
+
+      //displays the user's current room
+      socketio.on('display-room', function(room){
+
+          document.getElementById('currentroom').innerHTML = "current room: " + room;
+      })
+
+      //function to send a message
+      function sendMessage(){
+         var msg = document.getElementById("message_input").value;
+         socketio.emit("message_to_server", {message:msg});
+      }
+      //logs in a user
+      function login(){
+        var name = document.getElementById("nickname").value;
+        socketio.emit("login_user", name);
+        
+
+      }
+      //finishes log in on html side if all requirements were met
+      socketio.on('finish-login', function(name){
+        updateRoomList();
+        
+        document.getElementById("login").innerHTML = "nickname: " + name;
+       
+        updateUserList();
+      })
+
+      //updates the list of users in dropdown menus and lists
+      function updateUserList(){
+        console.log("updating user list");
+        socketio.emit('get-users');
+      }
+      //updtates the open room drop down lists
+      function updateRoomList(){
+          console.log('Update function');
+          socketio.emit("get-rooms");
+      }
+      //retrieves all of the open rooms from the array on server side
+      socketio.on('current-rooms', function(rooms, privaterooms){
+        var regroomsdropdown = document.getElementById('reg-room');
+        regroomsdropdown.innerHTML = "";
+
+          for(var x = 0; x < rooms.length; x++){
+           
+
+            var option = document.createElement("option");
+            option.value = rooms[x]['name'];
+            option.innerHTML = rooms[x]['name'];
+
+            regroomsdropdown.appendChild(option);
+
+
+          }
+
+          var privateul = document.getElementById('open-private');
+          var privatedropdown = document.getElementById('priv-room');
+          privatedropdown.innerHTML = '';
+          privateul.innerHTML = '';
+
+          for (var x in privaterooms){
+            var li = document.createElement("li");
+            
+            console.log("room name: " + privaterooms[x]['roomname']);
+            li.appendChild(document.createTextNode(privaterooms[x]['roomname']));
+           
+
+            privateul.appendChild(li);
+              console.log("private room name: " + privaterooms[x]['roomname'] + " with password: " + privaterooms[x]['password']);
+
+            var option = document.createElement("option");
+            option.value = privaterooms[x]['password'];
+            option.innerHTML = privaterooms[x]['roomname'];;
+
+            privatedropdown.appendChild(option);
+
+          }
+
+
+      });
+
+      //joins a private room if the password is correct
+      function joinPrivateRoom(){
+        var roomdrop = document.getElementById('priv-room');
+        var room = roomdrop.options[roomdrop.selectedIndex].text;
+        var actualPassword = document.getElementById('priv-room').value;
+        var passwordInput = document.getElementById('joining-password').value;
+        if(passwordInput == actualPassword){
+          console.log("room being passed is: " + room);
+          socketio.emit("join-room", room);
+          document.getElementById('chatlog').innerHTML = '';
+        } else{
+          alert('incorrect password provided');
+        }
+        updateUserList();
+        updateRoomList();
+        
+      }
+
+      //retreives the current users from the server side
+      socketio.on('current-users', function(users){
+        var ul = document.getElementById('list-of-users');
+        ul.innerHTML = "";
+        console.log("iterate through current users");
+        console.log(users);
+          for(var x in users){
+            console.log("appending user");
+            var li = document.createElement("li");
+            console.log("user name: " + users[x]);
+            li.appendChild(document.createTextNode(users[x]['nickname'] + " in " + users[x]['currentroom']));
+           
+           
+            ul.appendChild(li);
+             
+          }
+
+        });
+
+        //displays error for repreated username 
+        socketio.on('error', function(){
+          alert('Error: pick a unique name');
+        })
+        //displays error if user attempts doing something they do not have permission to do
+        socketio.on('wrong-permissions', function(){
+          alert('You do not have permission to do this.');
+        })
+        //displays message if user tries joining room they are blocked from
+        socketio.on('error-blocked', function(){
+          alert('You are not permitted to join this room.');
+        })
+        //message if kicked out of current room
+        socketio.on('banned-remove', function(room){
+          alert("You have been removed from room!");
+          
+          socketio.emit("join-room", room);
+          updateUserList();
+          updateRoomList();
+        });
+
+        //retrieves the users in your specific room
+        socketio.on('room-specific-users', function(roomusers){
+
+        var roomul = document.getElementById('current-room-users');
+        var dropdown = document.getElementById('priv-message');
+        var kickdropdown = document.getElementById('ban-user');
+        
+
+        
+        roomul.innerHTML = '';
+        
+        kickdropdown.innerHTML = '';
+        dropdown.innerHTML = '';
+
+
+        for(var x in roomusers){
+            console.log("room user to append: " + roomusers[x]['name']);
+
+            var option = document.createElement("option");
+            option.value = roomusers[x]['id'];
+            option.innerHTML = roomusers[x]['name'];
+
+            dropdown.appendChild(option);
+
+            var option2 = document.createElement("option");
+            option2.value = roomusers[x]['id'];
+            option2.innerHTML = roomusers[x]['name'];
+
+            kickdropdown.appendChild(option2);
+
+            var roomli = document.createElement("li");
+            roomli.appendChild(document.createTextNode(roomusers[x]['name']));
+            roomul.appendChild(roomli);
+             
+          }
+      });
+
+      //creates a new public chat room
+      function newRoom(){
+        var roomName = document.getElementById('new-room').value;
+        console.log("newRoom() called");
+        socketio.emit("create-room", roomName);
+        updateRoomList();
+      }
+
+      //joins a public chat room
+      function joinRoom(){
+        console.log("joinRoom() called");
+        console.log("joining room: " + room);
+        var room = document.getElementById('reg-room').value;
+
+        socketio.emit("join-room", room);
+        document.getElementById('chatlog').innerHTML = '';
+
+        updateUserList();
+
+      }
+
+      //creates a new private chat room
+      function newPrivateRoom(){
+        var privateName = document.getElementById('new-private-room').value;
+        var privatePassword = document.getElementById('private-room-password').value;
+        if (privateName != '' && privatePassword != ''){
+        socketio.emit("create-private-room", privateName, privatePassword);
+        } else{
+          alert("must input both a password and room name");
+        }
+        updateRoomList();
+
+
+      }
+
+      //sends a private message to specified user in your current room
+      function sendPrivateMessage(){
+        var recipient = document.getElementById('priv-message').value; //should be socket.id of recipient
+        console.log("would send private message to: " + recipient);
+        var message = document.getElementById('priv-message-text').value;
+        if(recipient != 'blank'){
+          socketio.emit("private-message", recipient, message);
+        }
+        
+      }
+
+      //bans user if you were the creator of chat room
+      function banUser(){
+        var userToBan = document.getElementById('ban-user').value;
+        if (userToBan != 'blank'){
+          socketio.emit('ban-user', userToBan);
+        }
+      }
+
+      //kicks user if you were creator of chat room
+      function kickUser(){
+        var userToKick = document.getElementById('ban-user').value;
+        if (userToKick != 'blank'){
+          socketio.emit('kick-user', userToKick);
+        }
+      }
+
+      //blocks user. they are now unable to join the same room as you
+      function blockUser(){
+        var userToBlock = document.getElementById('ban-user').value;
+        if (userToBlock != 'blank'){
+          socketio.emit('block-user', userToBlock);
+          alert("you have blocked a user permanently. You can now only chat with them in 'Open to all.'");
+        }
+      }
+      </script>
+   </head>
+   <body>
+     <!-- log in a user -->
+       <div id="login">
+         <h4>Enter a nickname to start chatting!</h4><input type="text" id="nickname" placeholder="nickname"/>
+         <button onclick="login()">log in</button>
+        </div>
+        <div id='yourname'></div>
+      <input type="text" id="message_input" placeholder="message"/>
+      <button onclick="sendMessage()">send</button>
+      <!-- chatlog of messages for room you are in -->
+      <h3>Chatlog</h3>
+      <div id="currentroom" style="color:blue;text-align:center;font-size: large;">
+          
+      </div>
+      <div id="chatlog"></div>
+
+      <hr>
+      <br>
+<!-- displays the open rooms -->
+      <div id="open-rooms">
+        
+        <br>
+        <hr>
+        <h4>Users in your selected room: </h4>
+          <ul id='current-room-users'></ul>
+
+          <!-- banning/blocking/kicking users -->
+          <select id="ban-user" name="ban-user">
+          <option value="blank">choose user</option>
+          </select>
+          <input type="submit" value='Ban User' onclick='banUser()'>
+          <input type="submit" value='kick user' onclick='kickUser()'>
+          <input type='submit' value='block user' onclick='blockUser()'>
+
+
+          <!-- private messaging -->
+          <select id="priv-message" name="priv-message">
+          <option value="blank">choose user</option>  
+          </select>
+          <input type="text" id="priv-message-text" placeholder="private message"/>
+          <input type="submit" value='send dm' onclick='sendPrivateMessage()'>
+
+          <br>
+          <hr>
+
+          <!-- joining/creating rooms -->
+          <h3>Currently Open Rooms</h3>
+        <ul id='list-of-rooms'></ul>
+        <select id="reg-room" name="reg-room">
+          <option value="none">choose room</option>  
+          </select>
+         
+          <button onclick="joinRoom()">join room</button>
+          <br>
+          <br>
+        <input type="text" id="new-room" placeholder="room name"/>
+        <button onclick="newRoom()">create room</button>
+          <br>
+        <input type="text" id="new-private-room" placeholder="room name"/>
+        <input type="text" id="private-room-password" placeholder="password"/>
+        <button onclick="newPrivateRoom()">create private room</button>
+
+        <h4>Join a Private Room</h4> 
+        Select private room: 
+
+        <select id="priv-room" name="priv-room">
+          <option value="none">choose room</option>  
+          </select>
+          <input type="text" id="joining-password" placeholder="password"/>
+          <button onclick="joinPrivateRoom()">join room</button>
+
+
+          
+        <ul id='open-private'></ul>
+    </div>
+<!-- online users and the rooms they are in -->
+    <div id="current-users">
+      <h3>Online Users:</h3>
+      <ul id='list-of-users'></ul>
+    </div>
+   </body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "module-6-package",
+  "version": "1.0.0",
+  "description": "package.json for module 6 chat room",
+  "main": "chat-server.js",
+  "dependencies": {
+    "mime": "^3.0.0",
+    "socket.io": "^4.4.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cse330-spring-2022/module6-group-486527-491368.git"
+  },
+  "author": "Sam Lu, Catie Corley",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cse330-spring-2022/module6-group-486527-491368/issues"
+  },
+  "homepage": "https://github.com/cse330-spring-2022/module6-group-486527-491368#readme"
+}
